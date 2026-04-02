@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>Cyber-Monitor v3.0</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body { background: #0b111a; color: #00ffcc; font-family: 'Consolas', monospace; margin: 0; padding: 20px; }
+        .grid-container { display: grid; grid-template-columns: 400px 1fr; gap: 20px; height: 92vh; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 20px; overflow: hidden; display: flex; flex-direction: column; }
+        .right-pane { display: grid; grid-template-rows: 1fr 1fr; gap: 20px; }
+        h2 { font-size: 16px; margin-top: 0; color: #58a6ff; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .log-box { flex-grow: 1; overflow-y: hidden; font-size: 12px; line-height: 1.6; }
+        .tcp { color: #58a6ff; } .udp { color: #7ee787; } .domain { color: #f2ce2b; font-weight: bold; }
+        .loc { color: #8b949e; font-style: italic; }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center; color: #238636; margin-bottom: 15px; text-shadow: 0 0 10px #238636;">SYSTEM ANALYZER v3.0</h1>
+    <div class="grid-container">
+        <div class="card">
+            <h2>协议占比统计</h2>
+            <div id="chart" style="width: 100%; height: 400px;"></div>
+        </div>
+
+        <div class="right-pane">
+            <div class="card">
+                <h2>🌍 实时流量与地理定位</h2>
+                <div id="addr-logs" class="log-box"></div>
+            </div>
+            <div class="card">
+                <h2>🌐 网址访问检测 (DPI)</h2>
+                <div id="dpi-logs" class="log-box"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        const chart = echarts.init(document.getElementById('chart'), 'dark');
+
+        socket.on('update', function(data) {
+            // 更新饼图
+            const chartData = Object.entries(data.stats).map(([name, value]) => ({ name, value }));
+            chart.setOption({
+                backgroundColor: 'transparent',
+                series: [{ type: 'pie', radius: ['40%', '70%'], data: chartData, label: {show: true, formatter: '{b}\n{d}%'} }]
+            });
+
+            // 更新地址日志
+            let addrHtml = "";
+            let dpiHtml = "";
+            data.logs.forEach(item => {
+                addrHtml = `<div><span class="${item.proto.toLowerCase()}">${item.proto}</span> | ${item.src} → ${item.dst} <span class="loc">[${item.loc}]</span></div>` + addrHtml;
+                if (item.domain) {
+                    dpiHtml = `<div><span class="domain">发现访问: ${item.domain}</span> <span class="loc">(来自 ${item.src})</span></div>` + dpiHtml;
+                }
+            });
+            document.getElementById('addr-logs').innerHTML = addrHtml;
+            const dpiBox = document.getElementById('dpi-logs');
+            if (dpiHtml) dpiBox.innerHTML = dpiHtml + dpiBox.innerHTML;
+        });
+    </script>
+</body>
+</html>
